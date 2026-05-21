@@ -1,0 +1,6 @@
+print("Hello World")
+print(2+1)
+print(6*7)
+print(7/14)
+print()
+print("The Sun rises", "in Day and", "the Moon rises in night.")
