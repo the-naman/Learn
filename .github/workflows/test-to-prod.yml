@@ -28,7 +28,7 @@ jobs:
     steps:
       # ── 1. Checkout PROD branch ──────────────────────────────────────────
       - name: Checkout PROD branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
         with:
           ref: PROD
           fetch-depth: 0       # full history needed for merge
@@ -101,3 +101,4 @@ jobs:
             This merge has been postponed to the next scheduled run (tomorrow at 12:00 IST).
 
             — Your GitHub Automation Bot
+
