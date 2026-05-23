@@ -10,6 +10,12 @@ INSERT INTO users1 (name, email) VALUES
   ('Alice', 'alice@example.com'),
   ('Bob', 'bob1@example.com');
 
+<<<<<<< HEAD
 SELECT * FROM users1;
 
 drop table users1;
+=======
+SELECT * FROM users;
+
+drop table users;
+>>>>>>> 5da8053 (Add daily migration workflows)
