@@ -5,9 +5,11 @@ CREATE TABLE IF NOT EXISTS users1 (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO users (name, email) VALUES 
+INSERT INTO users1 (name, email) VALUES 
   ('Naman', 'naman@example.com'),
   ('Alice', 'alice@example.com'),
   ('Bob', 'bob1@example.com');
 
-SELECT * FROM users;
+SELECT * FROM users1;
+
+drop table users1;
