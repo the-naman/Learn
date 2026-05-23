@@ -12,4 +12,4 @@ INSERT INTO users (name, email) VALUES
 
 SELECT * FROM users;
 
-drop table users;
+Drop table users;
