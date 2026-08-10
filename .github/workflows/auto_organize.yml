@@ -49,9 +49,18 @@ jobs:
               for root, dirs, files in os.walk(INCOMING_DIR):
                   if files and any(f != 'README.md' for f in files):
                       rel_path = os.path.relpath(root, INCOMING_DIR)
-                      tech_stack = get_tech_stack(files)
+                      path_parts = rel_path.split(os.sep)
                       
-                      target_dir = os.path.join(BASE_DIR, 'Coding', tech_stack, rel_path)
+                      # 🚨 DIFFICULTY STRIPPER: Removes 'easy', 'medium', or 'hard' layers dynamically
+                      if len(path_parts) >= 3 and path_parts[1].lower() in ['easy', 'medium', 'hard']:
+                          platform = path_parts[0]
+                          problem_name = path_parts[2]
+                          clean_rel_path = os.path.join(platform, problem_name)
+                      else:
+                          clean_rel_path = rel_path
+
+                      tech_stack = get_tech_stack(files)
+                      target_dir = os.path.join(BASE_DIR, 'Coding', tech_stack, clean_rel_path)
                       os.makedirs(target_dir, exist_ok=True)
                       
                       for item in os.listdir(root):
@@ -69,8 +78,7 @@ jobs:
           git config --global user.email "github-actions[bot]@://github.com"
           git add Coding/
           if ! git diff --quiet --staged; then
-            # 🚨 FIX: Replaced parenthetical typo with correct standard -m flag syntax
-            git commit -m "Automated Sync: Sorted problem into designated tech stack folder"
+            git commit -m "Automated Sync: Flattened paths and sorted clean problems"
             git pull origin TEST --rebase
             git push origin TEST
           fi
