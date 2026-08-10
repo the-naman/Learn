@@ -24,14 +24,66 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Run Organizer Script
+      - name: Install Network Dependencies
+        run: pip install requests
+
+      - name: Run Auto-Healing Smart Organizer
         run: |
           python -c "
           import os
           import shutil
+          import sys
+          import json
+          import re
+
+          # Attempt to load network handling packages safely for cloud lookup
+          try:
+              import requests
+          except ImportError:
+              requests = None
 
           BASE_DIR = os.getcwd()
           INCOMING_DIR = os.path.join(BASE_DIR, 'Coding', 'incoming')
+
+          def fetch_leetcode_difficulty(title_slug):
+              if not requests:
+                  return None
+              url = 'https://leetcode.com'
+              query = '''
+              query questionTitle($titleSlug: String!) {
+                question(titleSlug: $titleSlug) {
+                  difficulty
+                }
+              }
+              '''
+              variables = {'titleSlug': title_slug}
+              try:
+                  response = requests.post(url, json={'query': query, 'variables': variables}, timeout=5)
+                  if response.status_code == 200:
+                      data = response.json()
+                      diff = data.get('data', {}).get('question', {}).get('difficulty')
+                      if diff:
+                          return diff.lower()
+              except Exception as e:
+                  print(f'[Auto-Heal Warning] LeetCode dynamic lookup failed: {e}')
+              return None
+
+          def identify_hackerrank_difficulty(slug, readme_content):
+              # Check readme contents for difficulty hints
+              content_lower = readme_content.lower()
+              if 'difficulty: easy' in content_lower or 'easy' in content_lower:
+                  # If the title matches standard easy problems, override extension bugs
+                  if 'select' in slug or 'id' in slug or 'weather-observation-station-1' in slug or 'weather-observation-station-3' in slug:
+                      return 'easy'
+                  return 'easy'
+              if 'difficulty: hard' in content_lower:
+                  return 'hard'
+              
+              # Intelligently default structural SQL lookups to easy if ambiguous
+              if any(k in slug for k in ['select', 'where', 'by-id', 'station-1', 'station-2', 'station-3', 'station-4']):
+                  return 'easy'
+                  
+              return 'medium'
 
           def get_tech_stack(files):
               for f in files:
@@ -45,40 +97,69 @@ jobs:
                       return 'dsa'
               return 'misc'
 
+          # --- Main Core Execution (Protected Framework) ---
           if os.path.exists(INCOMING_DIR):
               for root, dirs, files in os.walk(INCOMING_DIR):
                   if files and any(f != 'README.md' for f in files):
-                      rel_path = os.path.relpath(root, INCOMING_DIR)
-                      path_parts = rel_path.split(os.sep)
-                      
-                      # 🚨 DIFFICULTY STRIPPER: Removes 'easy', 'medium', or 'hard' layers dynamically
-                      if len(path_parts) >= 3 and path_parts[1].lower() in ['easy', 'medium', 'hard']:
-                          platform = path_parts[0]
-                          problem_name = path_parts[2]
-                          clean_rel_path = os.path.join(platform, problem_name)
-                      else:
-                          clean_rel_path = rel_path
+                      try:
+                          rel_path = os.path.relpath(root, INCOMING_DIR)
+                          path_parts = rel_path.split(os.sep)
+                          
+                          # Extract structural components safely
+                          platform = path_parts[0] if len(path_parts) > 0 else 'misc'
+                          problem_folder = path_parts[-1] if len(path_parts) > 0 else 'unknown-problem'
+                          
+                          # Read README if available to capture context
+                          readme_data = ''
+                          readme_path = os.path.join(root, 'README.md')
+                          if os.path.exists(readme_path):
+                              with open(readme_path, 'r', encoding='utf-8', errors='ignore') as rf:
+                                  readme_data = rf.read()
 
-                      tech_stack = get_tech_stack(files)
-                      target_dir = os.path.join(BASE_DIR, 'Coding', tech_stack, clean_rel_path)
-                      os.makedirs(target_dir, exist_ok=True)
-                      
-                      for item in os.listdir(root):
-                          s_item = os.path.join(root, item)
-                          d_item = os.path.join(target_dir, item)
-                          if os.path.exists(s_item) and not os.path.isdir(s_item):
-                              shutil.move(s_item, d_item)
-                              
-              shutil.rmtree(INCOMING_DIR, ignore_errors=True)
+                          # Calculate Authentic Difficulty
+                          difficulty = 'medium' # System default
+                          
+                          if 'leetcode' in platform.lower():
+                              # Strip number patterns from slug strings safely
+                              slug = problem_folder.split('-', 1)[-1] if '-' in problem_folder else problem_folder
+                              fetched_diff = fetch_leetcode_difficulty(slug)
+                              if fetched_diff:
+                                  difficulty = fetched_diff
+                          elif 'hackerrank' in platform.lower():
+                              difficulty = identify_hackerrank_difficulty(problem_folder.lower(), readme_data)
+
+                          tech_stack = get_tech_stack(files)
+                          
+                          # Dynamic Architecture Pipeline
+                          # Coding/[tech_stack]/[platform]/[difficulty]/[problem]
+                          clean_rel_path = os.path.join(platform, difficulty, problem_folder)
+                          target_dir = os.path.join(BASE_DIR, 'Coding', tech_stack, clean_rel_path)
+                          os.makedirs(target_dir, exist_ok=True)
+                          
+                          # Migrate solution nodes safely
+                          for item in os.listdir(root):
+                              s_item = os.path.join(root, item)
+                              d_item = os.path.join(target_dir, item)
+                              if os.path.exists(s_item) and not os.path.isdir(s_item):
+                                  shutil.move(s_item, d_item)
+                      except Exception as item_error:
+                          print(f'[Critical Safe-Block Exception] Skipped item cluster due to: {item_error}')
+                          continue
+                          
+              # Clean up cache footprint safely without throwing runtime crashes
+              try:
+                  shutil.rmtree(INCOMING_DIR, ignore_errors=True)
+              except Exception:
+                  pass
           "
 
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@://github.com"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add Coding/
           if ! git diff --quiet --staged; then
-            git commit -m "Automated Sync: Flattened paths and sorted clean problems"
+            git commit -m "Automated Sync: Sorted problem into designated tech stack folder"
             git pull origin TEST --rebase
             git push origin TEST
           fi
