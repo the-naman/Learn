@@ -35,7 +35,7 @@ jobs:
 
           def get_tech_stack(files):
               for f in files:
-                  ext = os.path.splitext(f)[1].lower()
+                  ext = os.path.splitext(f).lower()
                   if ext in ['.sql', '.prc', '.pls']:
                       return 'sql'
                   if ext in ['.py']:
@@ -45,7 +45,6 @@ jobs:
               return 'misc'
 
           if os.path.exists(INCOMING_DIR):
-              processed_roots = set()
               for root, dirs, files in os.walk(INCOMING_DIR):
                   if files and any(f != 'README.md' for f in files):
                       rel_path = os.path.relpath(root, INCOMING_DIR)
@@ -68,4 +67,9 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@://github.com"
           git add Coding/
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Automated Sync: Sorted problem into designated tech stack folder" && git push origin TEST)
+          if ! git diff --quiet --staged; then
+            git commit -m "Automated Sync: Sorted problem into designated tech stack folder"
+            # 🚨 CONCURRENCY FIX: Pull any rapid changes from the extension before pushing
+            git pull origin TEST --rebase
+            git push origin TEST
+          fi
