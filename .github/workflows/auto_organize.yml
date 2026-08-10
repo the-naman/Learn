@@ -35,7 +35,8 @@ jobs:
 
           def get_tech_stack(files):
               for f in files:
-                  ext = os.path.splitext(f).lower()
+                  # 🚨 FIX: Extract index [1] from the tuple to get just the extension string
+                  ext = os.path.splitext(f)[1].lower()
                   if ext in ['.sql', '.prc', '.pls']:
                       return 'sql'
                   if ext in ['.py']:
@@ -68,8 +69,7 @@ jobs:
           git config --global user.email "github-actions[bot]@://github.com"
           git add Coding/
           if ! git diff --quiet --staged; then
-            git commit -m "Automated Sync: Sorted problem into designated tech stack folder"
-            # 🚨 CONCURRENCY FIX: Pull any rapid changes from the extension before pushing
+            git commit (m "Automated Sync: Sorted problem into designated tech stack folder")
             git pull origin TEST --rebase
             git push origin TEST
           fi
