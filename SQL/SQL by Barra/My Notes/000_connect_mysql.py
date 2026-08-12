@@ -33,7 +33,7 @@ def connect_mysql():
         print(f"❌ MySQL connection failed: {e}")
 
 
-# Register function into global namespace and run it on startup
+# Register function into global namespace and run it automatically on startup
 ip = get_ipython()
 if ip is not None:
     ip.user_ns['connect_mysql'] = connect_mysql
