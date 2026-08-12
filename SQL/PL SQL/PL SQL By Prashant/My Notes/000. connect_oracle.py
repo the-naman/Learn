@@ -53,3 +53,7 @@ def init_magic():
         print("✨ Permanent %%plsql cell magic registered! Session is live.")
     except Exception as e:
         print(f"❌ Connection setup failed: {e}")
+
+
+# Automatically fire the configuration when the file is loaded
+init_magic()
