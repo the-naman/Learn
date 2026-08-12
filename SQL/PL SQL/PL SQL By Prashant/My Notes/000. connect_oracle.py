@@ -1,19 +1,15 @@
 import oracledb
 from IPython.core.magic import register_cell_magic
-import sys
 
-
-def get_connection():
-    """Initializes a secure connection profile and returns active stream objects."""
-    params = oracledb.ConnectParams(
-        user="CON_V_I_C_TSDG_SCHEMA_BOHNN",
-        password="qOXP!U90EC17XYHNOJ7C6ZC2XJ6AWU",
-        host="db.freesql.com",
-        port=2484,
-        service_name="26ai_un3c1",
-        protocol="tcps"
-    )
-
+# 1. Credentials profile configuration
+params = oracledb.ConnectParams(
+    user="CON_V_I_C_TSDG_SCHEMA_BOHNN",
+    password="qOXP!U90EC17XYHNOJ7C6ZC2XJ6AWU",
+    host="db.freesql.com",
+    port=2484,
+    service_name="26ai_un3c1",
+    protocol="tcps"
+)
 
 # 2. Automatically establish connection and hook %%plsql into Jupyter
 try:
