@@ -1,5 +1,5 @@
 import oracledb
-from IPython.core.magic import register_cell_magic
+import sys
 
 # 1. Credentials profile configuration
 params = oracledb.ConnectParams(
@@ -11,31 +11,35 @@ params = oracledb.ConnectParams(
     protocol="tcps"
 )
 
-# 2. Automatically establish connection and hook %%plsql into Jupyter
-try:
-    connection = oracledb.connect(params=params)
-    cursor = connection.cursor()
 
-    @register_cell_magic
-    def plsql(line, cell):
-        try:
-            cursor.callproc("dbms_output.enable")
-            cursor.execute(cell)
+# 2. Check if we are running inside an active Jupyter Notebook environment
+shell = sys.modules.get('IPython') and sys.modules['IPython'].get_ipython()
 
-            status = cursor.var(oracledb.NUMBER)
-            db_line = cursor.var(oracledb.STRING)
+if shell:
+    try:
+        connection = oracledb.connect(params=params)
+        cursor = connection.cursor()
 
-            while True:
-                cursor.callproc("dbms_output.get_line", [db_line, status])
-                if status.getvalue() != 0:
-                    break
-                print(db_line.getvalue())
-        except Exception as e:
-            print(f"❌ Oracle Error: {e}")
+        # Define the clean %%plsql cell command shortcut
+        def plsql(line, cell):
+            try:
+                cursor.callproc("dbms_output.enable")
+                cursor.execute(cell)
 
-    # Register the shortcut directly into the notebook system space
-    get_ipython().register_magic_function(
-        plsql, magic_kind='cell', magic_name='plsql')
-    print("✨ Permanent %%plsql registered! Session is live.")
-except Exception as e:
-    print(f"❌ Connection setup failed: {e}")
+                status = cursor.var(oracledb.NUMBER)
+                db_line = cursor.var(oracledb.STRING)
+
+                while True:
+                    cursor.callproc("dbms_output.get_line", [db_line, status])
+                    if status.getvalue() != 0:
+                        break
+                    print(db_line.getvalue())
+            except Exception as e:
+                print(f"❌ Oracle Error: {e}")
+
+        # Register the shortcut directly into the notebook system space cleanly
+        shell.register_magic_function(
+            plsql, magic_kind='cell', magic_name='plsql')
+        print("✨ Permanent %%plsql registered! Session is live.")
+    except Exception as e:
+        print(f"❌ Connection setup failed: {e}")
