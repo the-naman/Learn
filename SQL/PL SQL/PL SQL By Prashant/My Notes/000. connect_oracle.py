@@ -49,11 +49,10 @@ if shell:
 # %run "000. connect_oracle.py"
 
 # to check connection is established correctly or not?
-'''
-%%plsql
-DECLARE
-    v_msg VARCHAR2(100) := 'Brilliant! Your database setup is officially complete.';
-BEGIN
-    DBMS_OUTPUT.PUT_LINE(v_msg);
-END;
-'''
+
+# %%plsql
+# DECLARE
+#     v_msg VARCHAR2(100) := 'Brilliant! Your database setup is officially complete.';
+# BEGIN
+#     DBMS_OUTPUT.PUT_LINE(v_msg);
+# END;
