@@ -23,7 +23,6 @@ def connect_mysql():
         try:
             ip.run_line_magic("load_ext", "sql")
         except:
-            # If already loaded, force-refresh it to clear stale sessions
             ip.run_line_magic("reload_ext", "sql")
 
         # 3. Authenticate and connect
@@ -34,5 +33,8 @@ def connect_mysql():
         print(f"❌ MySQL connection failed: {e}")
 
 
-# Step 1: Run it automatically the moment any notebook kernel starts up
-connect_mysql()
+# Register function into global namespace and run it on startup
+ip = get_ipython()
+if ip is not None:
+    ip.user_ns['connect_mysql'] = connect_mysql
+    connect_mysql()
