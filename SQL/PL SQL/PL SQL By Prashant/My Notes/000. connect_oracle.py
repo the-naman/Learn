@@ -1,4 +1,6 @@
 import oracledb
+from IPython.core.magic import register_cell_magic
+import sys
 
 
 def get_connection():
@@ -11,18 +13,43 @@ def get_connection():
         service_name="26ai_un3c1",
         protocol="tcps"
     )
-    connection = oracledb.connect(params=params)
-    cursor = connection.cursor()
-    cursor.callproc("dbms_output.enable")
-    return connection, cursor
 
 
-def fetch_output(cursor):
-    """Fetches and displays the console log lines from the database engine."""
-    status = cursor.var(oracledb.NUMBER)
-    line = cursor.var(oracledb.STRING)
-    while True:
-        cursor.callproc("dbms_output.get_line", [line, status])
-        if status.getvalue() != 0:
-            break
-        print(line.getvalue())
+# Global connection variables
+connection = None
+cursor = None
+
+
+def init_magic():
+    """Establishes connection and hooks the %%plsql cell command directly into Jupyter."""
+    global connection, cursor
+    try:
+        if connection is None:
+            connection = oracledb.connect(params=params)
+            cursor = connection.cursor()
+
+        # Register a clean, zero-boilerplate cell handler shortcut
+        @register_cell_magic
+        def plsql(line, cell):
+            try:
+                cursor.callproc("dbms_output.enable")
+                cursor.execute(cell)
+
+                # Automatically extract and dump server text buffers onto screen
+                status = cursor.var(oracledb.NUMBER)
+                db_line = cursor.var(oracledb.STRING)
+
+                while True:
+                    cursor.callproc("dbms_output.get_line", [db_line, status])
+                    if status.getvalue() != 0:
+                        break
+                    print(db_line.getvalue())
+            except Exception as e:
+                print(f"❌ Oracle Error: {e}")
+
+        # Register it cleanly into the active notebook space
+        get_ipython().register_magic_function(
+            plsql, magic_kind='cell', magic_name='plsql')
+        print("✨ Permanent %%plsql cell magic registered! Session is live.")
+    except Exception as e:
+        print(f"❌ Connection setup failed: {e}")
