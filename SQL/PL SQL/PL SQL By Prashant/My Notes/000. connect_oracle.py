@@ -15,45 +15,31 @@ def get_connection():
     )
 
 
-# Global connection variables
-connection = None
-cursor = None
+# 2. Automatically establish connection and hook %%plsql into Jupyter
+try:
+    connection = oracledb.connect(params=params)
+    cursor = connection.cursor()
 
+    @register_cell_magic
+    def plsql(line, cell):
+        try:
+            cursor.callproc("dbms_output.enable")
+            cursor.execute(cell)
 
-def init_magic():
-    """Establishes connection and hooks the %%plsql cell command directly into Jupyter."""
-    global connection, cursor
-    try:
-        if connection is None:
-            connection = oracledb.connect(params=params)
-            cursor = connection.cursor()
+            status = cursor.var(oracledb.NUMBER)
+            db_line = cursor.var(oracledb.STRING)
 
-        # Register a clean, zero-boilerplate cell handler shortcut
-        @register_cell_magic
-        def plsql(line, cell):
-            try:
-                cursor.callproc("dbms_output.enable")
-                cursor.execute(cell)
+            while True:
+                cursor.callproc("dbms_output.get_line", [db_line, status])
+                if status.getvalue() != 0:
+                    break
+                print(db_line.getvalue())
+        except Exception as e:
+            print(f"❌ Oracle Error: {e}")
 
-                # Automatically extract and dump server text buffers onto screen
-                status = cursor.var(oracledb.NUMBER)
-                db_line = cursor.var(oracledb.STRING)
-
-                while True:
-                    cursor.callproc("dbms_output.get_line", [db_line, status])
-                    if status.getvalue() != 0:
-                        break
-                    print(db_line.getvalue())
-            except Exception as e:
-                print(f"❌ Oracle Error: {e}")
-
-        # Register it cleanly into the active notebook space
-        get_ipython().register_magic_function(
-            plsql, magic_kind='cell', magic_name='plsql')
-        print("✨ Permanent %%plsql cell magic registered! Session is live.")
-    except Exception as e:
-        print(f"❌ Connection setup failed: {e}")
-
-
-# Automatically fire the configuration when the file is loaded
-init_magic()
+    # Register the shortcut directly into the notebook system space
+    get_ipython().register_magic_function(
+        plsql, magic_kind='cell', magic_name='plsql')
+    print("✨ Permanent %%plsql registered! Session is live.")
+except Exception as e:
+    print(f"❌ Connection setup failed: {e}")
