@@ -1,22 +1,40 @@
 import oracledb
 import sys
+import os
 
-# 1. Credentials profile configuration
-params = oracledb.ConnectParams(
-    user="CON_V_I_C_TSDG_SCHEMA_BOHNN",
-    password="qOXP!U90EC17XYHNOJ7C6ZC2XJ6AWU",
-    host="db.freesql.com",
-    port=2484,
-    service_name="26ai_un3c1",
-    protocol="tcps"
-)
-
+# 1. Path to your external secure credentials text file
+secrets_path = r"E:\Study\Github\Sec\Secrets\Orace DB Credentials\OracleConnectionString.txt"
 
 # 2. Check if we are running inside an active Jupyter Notebook environment
 shell = sys.modules.get('IPython') and sys.modules['IPython'].get_ipython()
 
 if shell:
     try:
+        # Load and parse credentials dynamically from your secure text file
+        creds = {}
+        if os.path.exists(secrets_path):
+            with open(secrets_path, "r") as f:
+                for line in f:
+                    if "=" in line:
+                        k, v = line.strip().split("=", 1)
+                        # Clean out quotes if you left them in the text file
+                        creds[k.strip()] = v.strip().replace(
+                            '"', '').replace("'", "")
+        else:
+            raise FileNotFoundError(
+                f"Secrets file not found at path: {secrets_path}")
+
+        # Assemble the internal driver configuration block safely
+        params = oracledb.ConnectParams(
+            user=creds.get("user"),
+            password=creds.get("password"),
+            host=creds.get("host"),
+            port=int(creds.get("port", 1521)),
+            service_name=creds.get("service_name"),
+            protocol=creds.get("protocol", "tcps")
+        )
+
+        # Establish connection channel using the dynamic parameters
         connection = oracledb.connect(params=params)
         cursor = connection.cursor()
 
@@ -40,7 +58,7 @@ if shell:
         # Register the shortcut directly into the notebook system space cleanly
         shell.register_magic_function(
             plsql, magic_kind='cell', magic_name='plsql')
-        print("✨ Permanent %%plsql registered! Session is live.")
+        print("✨ Permanent %%plsql registered from secrets file! Session is live.")
     except Exception as e:
         print(f"❌ Connection setup failed: {e}")
 
