@@ -1,0 +1,150 @@
+name: Auto Organize Coding Solutions
+
+on:
+  push:
+    paths:
+      - 'Coding/incoming/**'
+    branches:
+      - TEST
+
+permissions:
+  contents: write
+
+jobs:
+  organize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Network Dependencies
+        run: pip install requests
+
+      - name: Run Intelligent Layout Classification Engine
+        run: |
+          python -c "
+          import os
+          import shutil
+          import sys
+          import re
+
+          try:
+              import requests
+          except ImportError:
+              requests = None
+
+          BASE_DIR = os.getcwd()
+          INCOMING_DIR = os.path.join(BASE_DIR, 'Coding', 'incoming')
+
+          def fetch_leetcode_difficulty(title_slug):
+              if not requests:
+                  return None
+              url = 'https://leetcode.com'
+              query = '''
+              query questionTitle($titleSlug: String!) {
+                question(titleSlug: $titleSlug) {
+                  difficulty
+                }
+              }
+              '''
+              variables = {'titleSlug': title_slug}
+              try:
+                  response = requests.post(url, json={'query': query, 'variables': variables}, timeout=5)
+                  if response.status_code == 200:
+                      data = response.json()
+                      diff = data.get('data', {}).get('question', {}).get('difficulty')
+                      if diff:
+                          return diff.lower()
+              except Exception as e:
+                  print(f'[Dynamic Engine Alert] Live LeetCode DB lookup skipped: {e}')
+              return None
+
+          def parse_hackerrank_readme(readme_content):
+              # Check for precise, explicit meta attributes embedded by the scraper
+              # Validates exact target patterns like 'Difficulty: Easy' or '### Difficulty: Medium'
+              match = re.search(r'(?:difficulty|level)\s*:\s*(easy|medium|hard)', readme_content, re.IGNORECASE)
+              if match:
+                  return match.group(1).lower()
+                  
+              # Dynamic Text Pattern Backups (catches badge markdown or text sections)
+              if re.search(r'\b(easy)\b', readme_content, re.IGNORECASE):
+                  return 'easy'
+              if re.search(r'\b(hard|advanced)\b', readme_content, re.IGNORECASE):
+                  return 'hard'
+              return 'medium'
+
+          def get_tech_stack(files):
+              for f in files:
+                  name, ext = os.path.splitext(f)
+                  ext = ext.lower()
+                  if ext in ['.sql', '.prc', '.pls']:
+                      return 'sql'
+                  if ext in ['.py']:
+                      return 'python'
+                  if ext in ['.cpp', '.java', '.go', '.js', '.ts', '.c']:
+                      return 'dsa'
+              return 'misc'
+
+          # --- Safe Processing Execution Loop ---
+          if os.path.exists(INCOMING_DIR):
+              for root, dirs, files in os.walk(INCOMING_DIR):
+                  if files and any(f != 'README.md' for f in files):
+                      try:
+                          rel_path = os.path.relpath(root, INCOMING_DIR)
+                          path_parts = rel_path.split(os.sep)
+                          
+                          platform = path_parts[0] if len(path_parts) > 0 else 'misc'
+                          problem_folder = path_parts[-1] if len(path_parts) > 0 else 'unknown-problem'
+                          
+                          readme_content = ''
+                          readme_path = os.path.join(root, 'README.md')
+                          if os.path.exists(readme_path):
+                              with open(readme_path, 'r', encoding='utf-8', errors='ignore') as rf:
+                                  readme_content = rf.read()
+
+                          difficulty = 'medium' # Strict processing anchor default
+                          
+                          if 'leetcode' in platform.lower():
+                              slug = problem_folder.split('-', 1)[-1] if '-' in problem_folder else problem_folder
+                              fetched_diff = fetch_leetcode_difficulty(slug)
+                              if fetched_diff:
+                                  difficulty = fetched_diff
+                          elif 'hackerrank' in platform.lower():
+                              difficulty = parse_hackerrank_readme(readme_content)
+
+                          tech_stack = get_tech_stack(files)
+                          clean_rel_path = os.path.join(platform, difficulty, problem_folder)
+                          target_dir = os.path.join(BASE_DIR, 'Coding', tech_stack, clean_rel_path)
+                          os.makedirs(target_dir, exist_ok=True)
+                          
+                          for item in os.listdir(root):
+                              s_item = os.path.join(root, item)
+                              d_item = os.path.join(target_dir, item)
+                              if os.path.exists(s_item) and not os.path.isdir(s_item):
+                                  shutil.move(s_item, d_item)
+                      except Exception as inner_error:
+                          print(f'[Safety Bypass Alert] Process skipped for current branch folder iteration: {inner_error}')
+                          continue
+              try:
+                  shutil.rmtree(INCOMING_DIR, ignore_errors=True)
+              except Exception:
+                  pass
+          "
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add Coding/
+          if ! git diff --quiet --staged; then
+            git commit -m "Automated Sync: Sorted problem into designated tech stack folder"
+            git pull origin TEST --rebase
+            git push origin TEST
+          fi
